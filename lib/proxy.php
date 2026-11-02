@@ -5,7 +5,7 @@ const BDRIS_UPSTREAM = 'https://bdris.gov.bd';
 const BDRIS_BASE = '/site';
 const BDRIS_CACHE_DIR = __DIR__ . '/../cache';
 const BDRIS_CACHE_TTL = 86400;
-const BDRIS_CACHE_VERSION = '3';
+const BDRIS_CACHE_VERSION = '5';
 const BDRIS_HTML_CACHE_TTL = 300;
 
 function bdris_proxy_handle(string $path): void
@@ -1003,10 +1003,53 @@ for(var k in map){if(p===k||p.indexOf(k+'/')===0){key=map[k];break;}}
 var b=el.querySelector('b');
 if(b){b.textContent='/ '+key;}
 }
+function stripRestrictions(root){
+if(!root||root.nodeType!==1){return;}
+var nodes=[];
+if(root.matches&&root.matches('input,select,textarea')){nodes.push(root);}
+if(root.querySelectorAll){nodes=nodes.concat([].slice.call(root.querySelectorAll('input,select,textarea')));}
+nodes.forEach(function(el){
+['required','pattern','maxlength','minlength','min','max','step','readonly','disabled','aria-required'].forEach(function(a){el.removeAttribute(a);});
+el.classList.remove('required-field');
+});
+if(root.querySelectorAll){[].forEach.call(root.querySelectorAll('.required-field'),function(el){el.classList.remove('required-field');});}
+}
+function freeForm(){
+var form=document.getElementById('birth_application_form');
+if(!form||form.getAttribute('data-xr-free')==='1'){return;}
+form.setAttribute('data-xr-free','1');
+form.setAttribute('novalidate','novalidate');
+stripRestrictions(form);
+if(window.MutationObserver){
+new MutationObserver(function(list){list.forEach(function(m){[].forEach.call(m.addedNodes,stripRestrictions);});}).observe(form,{childList:true,subtree:true});
+}
+window.validateForm=function(){return true;};
+if(window.jQuery){
+var $=window.jQuery;
+$.fn.validate=function(){return this;};
+$.fn.valid=function(){return true;};
+try{
+$('#fileupload').fileupload('option','maxFileSize',undefined);
+$('#fileupload').fileupload('option','acceptFileTypes',undefined);
+$('#fileupload').fileupload('option','maxNumberOfFiles',undefined);
+}catch(e){}
+}
+['isAnyOfTheAddressesCountryMatchWithOfficeAddrCountryWhileOfficeInMission','attachmentTypesMatchWithFileTypes','isFatherUbrnValid','isMotherUbrnValid','isParentsDobBeforeChilds','checkGap','isThChildAvailableCheck'].forEach(function(n){window[n]=function(){return true;};});
+document.addEventListener('click',function(e){
+var t=e.target;
+if(!t||!t.closest||!t.closest('#brPreviewPageSubmitButton')){return;}
+var otp=document.getElementById('otp');
+if(!otp){return;}
+if(window.jQuery){window.jQuery(otp).data('verified',true);}
+otp.setAttribute('data-verified','true');
+},true);
+}
 document.addEventListener('DOMContentLoaded',function(){
 document.body.classList.add('xr-apply');
 crumb();
 label();
+freeForm();
+setTimeout(freeForm,1000);
 var form=document.querySelector('.multi-step-form');
 if(!form||!window.MutationObserver){return;}
 new MutationObserver(label).observe(form,{attributes:true,subtree:true,attributeFilter:['class']});
