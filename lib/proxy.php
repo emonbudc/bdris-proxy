@@ -5,7 +5,7 @@ const BDRIS_UPSTREAM = 'https://bdris.gov.bd';
 const BDRIS_BASE = '/site';
 const BDRIS_CACHE_DIR = __DIR__ . '/../cache';
 const BDRIS_CACHE_TTL = 86400;
-const BDRIS_CACHE_VERSION = '1';
+const BDRIS_CACHE_VERSION = '3';
 const BDRIS_HTML_CACHE_TTL = 300;
 
 function bdris_proxy_handle(string $path): void
@@ -913,7 +913,7 @@ function bdris_request_stream(string $url, string $method, ?string $body, array 
 
 function bdris_theme_head(): string
 {
-    return '<link rel="stylesheet" href="/assets/br.css"><script>' . bdris_theme_js() . '</script>';
+    return '<link rel="stylesheet" href="/assets/br.css?v=3"><script>' . bdris_theme_js() . '</script>';
 }
 
 function bdris_inject_theme(string $html): string
@@ -931,10 +931,9 @@ function bdris_theme_header(): string
     return <<<'HTML'
 <div class="xr-top">
 <a class="xr-brand" href="/">
-<span class="xr-logo"><svg viewBox="0 0 40 40" width="30" height="30" fill="none"><rect x="1.5" y="1.5" width="37" height="37" rx="11" stroke="currentColor" stroke-width="2"/><path d="M12 13.5h16M12 20h16M12 26.5h9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="28.5" cy="27" r="4" stroke="currentColor" stroke-width="2"/></svg></span>
+<span class="xr-logo"><img src="/assets/logo.png" alt="" width="34" height="34"></span>
 <span class="xr-brand-text"><strong>BDRIS</strong><em>Birth Registration</em></span>
 </a>
-<span class="xr-step" id="xr-step">Application</span>
 <nav class="xr-links">
 <a href="/">Home</a>
 <a href="/site/br/application">Apply</a>
@@ -942,6 +941,17 @@ function bdris_theme_header(): string
 <a href="/site/login">Sign in</a>
 <button type="button" class="xr-lang" onclick="if(window.languageChange){languageChange('en')}">EN</button>
 </nav>
+</div>
+<div class="xr-subbar">
+<div class="xr-subbar-inner">
+<span class="xr-crumb" id="xr-crumb">Birth registration <b>/ New application</b></span>
+<span class="xr-steps" id="xr-steps" hidden>
+<span class="xr-step-count" id="xr-step">Step 1</span>
+<span class="xr-step-name" id="xr-step-name"></span>
+<span class="xr-step-bar"><i id="xr-step-fill"></i></span>
+</span>
+<a class="xr-help" href="/site/br/application/status">Already applied? Check status</a>
+</div>
 </div>
 HTML;
 }
@@ -968,17 +978,34 @@ function bdris_theme_js(): string
 function label(){
 var form=document.querySelector('.multi-step-form');
 if(!form){return;}
-var fields=form.querySelectorAll('fieldset[id]');
+var fields=[].filter.call(form.querySelectorAll('fieldset[id]'),function(f){return /(^|-)step-\d+$/.test(f.id);});
 var active=form.querySelector('fieldset.active');
-var pill=document.getElementById('xr-step');
-if(!pill||!active){return;}
-var m=(active.id||'').match(/(\d+)$/);
-if(!m){return;}
-var n=0;
-fields.forEach(function(f){if(/(\d+)$/.test(f.id)){n++;}});
-pill.textContent=n>1?('Step '+m[1]+' of '+n):'Application';
+var box=document.getElementById('xr-steps');
+var count=document.getElementById('xr-step');
+var name=document.getElementById('xr-step-name');
+var fill=document.getElementById('xr-step-fill');
+if(!box||!count||!active||!fields.length){return;}
+var idx=fields.indexOf(active);
+if(idx<0){return;}
+box.hidden=false;
+count.textContent='Step '+(idx+1)+' of '+fields.length;
+var h=active.querySelector('h5');
+name.textContent=h?(h.textContent||'').replace(/\s+/g,' ').trim():'';
+if(fill){fill.style.width=Math.round(((idx+1)/fields.length)*100)+'%';}
+}
+function crumb(){
+var el=document.getElementById('xr-crumb');
+if(!el){return;}
+var p=location.pathname.replace(/\/+$/,'');
+var map={'/site/br/application':'New application','/site/br/application/status':'Application status','/site/br/correction':'Correction','/site/br/reprint/add':'Reprint','/site/dr/application':'Death registration'};
+var key='New application';
+for(var k in map){if(p===k||p.indexOf(k+'/')===0){key=map[k];break;}}
+var b=el.querySelector('b');
+if(b){b.textContent='/ '+key;}
 }
 document.addEventListener('DOMContentLoaded',function(){
+document.body.classList.add('xr-apply');
+crumb();
 label();
 var form=document.querySelector('.multi-step-form');
 if(!form||!window.MutationObserver){return;}
